@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ScanStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ACCEPTED_RISK
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  projects     Project[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  scans       Scan[]
+
+  @@index([userId, updatedAt])
+}
+
+model Scan {
+  id          String         @id @default(cuid())
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status      ScanStatus     @default(QUEUED)
+  files       ScannedFile[]
+  error       String?
+  createdAt   DateTime       @default(now())
+  completedAt DateTime?
+  findings    Finding[]
+  scenarios   RiskScenario[]
+  reports     Report[]
+
+  @@index([projectId, createdAt])
+}
+
+model ScannedFile {
+  id     String @id @default(cuid())
+  scanId String
+  scan   Scan   @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  path   String
+
+  @@unique([scanId, path])
+}
+
+model Finding {
+  id                 String              @id @default(cuid())
+  scanId             String
+  scan               Scan                @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  ruleId             String
+  title              String
+  description        String
+  severity           Severity
+  filePath           String
+  line               Int?
+  evidence           String
+  explanation        String
+  remediation        String
+  confidence         String
+  status             FindingStatus       @default(OPEN)
+  createdAt          DateTime            @default(now())
+  scenarios          ScenarioFinding[]
+  remediationRecords RemediationRecord[]
+
+  @@index([scanId, severity])
+  @@index([ruleId, filePath])
+}
+
+model RiskScenario {
+  id          String            @id @default(cuid())
+  scanId      String
+  scan        Scan              @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  ruleId      String
+  name        String
+  severity    Severity
+  explanation String
+  impact      String
+  remediation String
+  createdAt   DateTime          @default(now())
+  findings    ScenarioFinding[]
+
+  @@index([scanId, severity])
+}
+
+model ScenarioFinding {
+  scenarioId String
+  findingId  String
+  scenario   RiskScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  finding    Finding      @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@id([scenarioId, findingId])
+  @@index([findingId])
+}
+
+model RemediationRecord {
+  id         String        @id @default(cuid())
+  findingId  String
+  finding    Finding       @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  fromStatus FindingStatus
+  toStatus   FindingStatus
+  note       String?
+  createdAt  DateTime      @default(now())
+
+  @@index([findingId, createdAt])
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  scanId    String
+  scan      Scan     @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  format    String
+  createdAt DateTime @default(now())
+
+  @@index([scanId, createdAt])
+}

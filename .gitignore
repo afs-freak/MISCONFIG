@@ -1,0 +1,23 @@
+node_modules
+dist
+.env
+.env.*.local
+coverage
+.DS_Store
+*.log
+apps/api/uploads
+
+# Local Git metadata
+.git-misconfig/
+
+# Local backup files
+*.backup.*
+
+# Environment files
+.env.*
+
+# Keep the example environment template
+!.env.example
+
+# TypeScript generated files
+*.tsbuildinfo
